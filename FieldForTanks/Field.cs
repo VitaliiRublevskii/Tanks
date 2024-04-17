@@ -11,6 +11,7 @@ namespace FieldForTanks
 
         private Socket socket;
         private int numberPlayer = 0;
+        char direction = 'Q';
         private userTank_1 tank_1; // Оголошуємо танк для гравця 1
         private userTank_2 tank_2; // Оголошуємо танк для гравця 2
 
@@ -23,24 +24,68 @@ namespace FieldForTanks
             this.KeyDown += fieldForm_KeyDown; // Додаємо обробник події KeyDown до форми
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        //private void Form1_Load(object sender, EventArgs e)
+        //{
+        //    InitializePlayer();
+
+
+        //    tank_1 = new userTank_1(); // Ініціалізуємо танк для гравця 1
+        //    tank_2 = new userTank_2(); // Ініціалізуємо танк для гравця 2
+
+        //    fieldPanel.Controls.Add(tank_1);  //  на фрму FieldForm на панель fieldPanel треба додати пользовательский єлемент Елемент userTank_1
+        //    tank_1.Location = new System.Drawing.Point(0, 200);
+
+        //    fieldPanel.Controls.Add(tank_2);
+        //    tank_2.Location = new System.Drawing.Point(770, 200);
+
+        //    //this.Focus();
+
+        //    //MoveTanksAsync(direction, tank_1, tank_2);
+
+        //}
+
+        private async void Form1_Load(object sender, EventArgs e)
         {
-            InitializePlayer();
+            await InitializePlayer();
 
+            tank_1 = new userTank_1();
+            tank_2 = new userTank_2();
 
-            tank_1 = new userTank_1(); // Ініціалізуємо танк для гравця 1
-            tank_2 = new userTank_2(); // Ініціалізуємо танк для гравця 2
-
-            fieldPanel.Controls.Add(tank_1);  //  на фрму FieldForm на панель fieldPanel треба додати пользовательский єлемент Елемент userTank_1
+            fieldPanel.Controls.Add(tank_1);
             tank_1.Location = new System.Drawing.Point(0, 200);
 
             fieldPanel.Controls.Add(tank_2);
             tank_2.Location = new System.Drawing.Point(770, 200);
-                        
-            this.Focus();
 
+            // Запускаємо паралельні задачі для кожного гравця
+            Task task1 = Task.Run(async () => await MoveAndReceive1Async(tank_1));
+            Task task2 = Task.Run(async () => await MoveAndReceive2Async(tank_2));
 
+            // Очікуємо завершення обох задач
+            await Task.WhenAll(task1, task2);
         }
+
+        private async Task MoveAndReceive1Async(userTank_1 tank_1)
+        {
+            while (true)
+            {
+                await MoveTank1Async(direction, tank_1);
+                await ReceiveOpponentTankMovement();
+            }
+        }
+
+        private async Task MoveAndReceive2Async(userTank_2 tank_2)
+        {
+            while (true)
+            {
+                await MoveTank2Async(direction, tank_2);
+                await ReceiveOpponentTankMovement();
+            }
+        }
+
+
+
+
 
         private async Task InitializePlayer()
         {
@@ -58,12 +103,15 @@ namespace FieldForTanks
                     Text = (numberPlayer == 1) ? "Гравець 1" : "Гравець 2";
                     MessageBox.Show($"Гравець {numberPlayer}, ви підключились до гри.");
 
-                }
+                }               
+
                 else
                 {
                     MessageBox.Show($"Вибачте, до сервера вже підключено 2 гравці. Спробуйте пізніше.");
                     this.Close();
                 }
+
+                //await MoveTanksAsync(direction, tank_1, tank_2);
             }
             catch (Exception ex)
             {
@@ -78,9 +126,7 @@ namespace FieldForTanks
             int bytesRead = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
             return Encoding.Unicode.GetString(buffer, 0, bytesRead);
         }
-
-        // метод переміщення танчика по панелі
-
+                
         //  обробник подій для натискання клавіш на клавіатурі
         private async void fieldForm_KeyDown(object sender, KeyEventArgs e)
         {
@@ -129,12 +175,12 @@ namespace FieldForTanks
                 tank_1.Location = newLocation;
 
                 // Відправляємо нові координати на сервер
-                string message = $"{direction}{newLocation.X},{newLocation.Y}";
+                string message = $"{direction},{newLocation.X},{newLocation.Y}";
                 byte[] buffer = Encoding.Unicode.GetBytes(message);
                 await socket.SendAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
 
                 // Отримуємо рух танка противника
-                await ReceiveOpponentTankMovement();
+                //await ReceiveOpponentTankMovement();
             }
             catch (Exception ex)
             {
@@ -169,12 +215,12 @@ namespace FieldForTanks
                 tank_2.Location = newLocation;
 
                 // Відправляємо нові координати на сервер (потрібно реалізувати)
-                string message = $"{direction.ToString()},{newLocation.X},{newLocation.Y}";
+                string message = $"{direction},{newLocation.X},{newLocation.Y}";
                 byte[] buffer = Encoding.Unicode.GetBytes(message);
                 await socket.SendAsync(new ArraySegment<byte>(buffer), SocketFlags.None);
 
                 // Отримуємо рух танка противника
-                await ReceiveOpponentTankMovement();
+                //await ReceiveOpponentTankMovement();
             }
             catch (Exception ex)
             {
@@ -195,8 +241,9 @@ namespace FieldForTanks
 
                 string[] parts = message.Split(',');
                 string direction = parts[0];
-                int x = int.Parse(parts[0]);
-                int y = int.Parse(parts[1]);
+                int x = int.Parse(parts[1]);
+                int y = int.Parse(parts[2]);
+                //MessageBox.Show($"Прийшла строка: {parts[0]}, {parts[1]}, {parts[2]}");
 
                 // Оновлення положення танка противника на формі
                 if (numberPlayer == 1)
@@ -214,9 +261,11 @@ namespace FieldForTanks
             }
         }
 
+        
 
+        
 
-
+        
 
     }
 }
